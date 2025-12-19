@@ -37,8 +37,9 @@ export default class VeSync {
   private api?: AxiosInstance;
   private accountId?: string;
   private token?: string;
+  private loginInterval?: ReturnType<typeof setInterval>;
 
-  private readonly VERSION = '1.3.1';
+  private readonly VERSION = '2.0.0';
   private readonly AGENT = `VeSync/VeSync 3.0.51(F5321;HomeBridge-VeSync ${this.VERSION})`;
   private readonly TIMEZONE = 'America/New_York';
   private readonly OS = 'HomeBridge-VeSync';
@@ -128,22 +129,41 @@ export default class VeSync {
 
         const isSuccess = response?.data?.code === 0;
         if (!isSuccess) {
+          const errorMsg = response?.data?.msg || 'Unknown error';
+          const errorCode = response?.data?.code;
           this.debugMode.debug(
             '[SEND COMMAND]',
             `Failed to send command ${method} to ${fan.name}`,
             `with (${JSON.stringify(body)})!`,
-            `Response: ${JSON.stringify(response)}`
+            `Response: ${JSON.stringify(response.data)}`
           );
+          this.log.error(
+            `Failed to send command ${method} to ${fan.name}: ${errorMsg} (Code: ${errorCode})`
+          );
+          
+          // Bei Token-Fehlern versuche erneut nach Login
+          if (errorCode === -11012001 || errorCode === -11012002) {
+            this.debugMode.debug('[SEND COMMAND]', 'Token expired, attempting re-login...');
+            const loginSuccess = await this.login();
+            if (loginSuccess) {
+              // Versuche den Befehl erneut
+              return await this.sendCommand(fan, method, body);
+            }
+          }
         }
 
         await delay(500);
 
         return isSuccess;
       } catch (error: any) {
+        const errorMessage = error?.response?.data 
+          ? JSON.stringify(error.response.data)
+          : error?.message || 'Unknown error';
         this.log.error(
           `Failed to send command ${method} to ${fan?.name}`,
-          `Error: ${error?.message}`
+          `Error: ${errorMessage}`
         );
+        this.debugMode.debug('[SEND COMMAND]', 'Error details:', errorMessage);
         return false;
       }
     });
@@ -173,6 +193,30 @@ export default class VeSync {
             'No response data!! JSON:',
             JSON.stringify(response)
           );
+          return null;
+        }
+
+        // Prüfe auf API-Fehler
+        if (response.data.code !== 0 && response.data.code !== undefined) {
+          const errorMsg = response.data.msg || 'Unknown error';
+          const errorCode = response.data.code;
+          this.debugMode.debug(
+            '[GET DEVICE INFO]',
+            `API error: ${errorMsg} (Code: ${errorCode})`,
+            JSON.stringify(response.data)
+          );
+          
+          // Bei Token-Fehlern versuche erneut nach Login
+          if (errorCode === -11012001 || errorCode === -11012002) {
+            this.debugMode.debug('[GET DEVICE INFO]', 'Token expired, attempting re-login...');
+            const loginSuccess = await this.login();
+            if (loginSuccess) {
+              // Versuche erneut
+              return await this.getDeviceInfo(fan, humidifier);
+            }
+          }
+          
+          return null;
         }
 
         await delay(500);
@@ -185,10 +229,14 @@ export default class VeSync {
 
         return response.data;
       } catch (error: any) {
+        const errorMessage = error?.response?.data 
+          ? JSON.stringify(error.response.data)
+          : error?.message || 'Unknown error';
         this.log.error(
           `Failed to get device info for ${fan?.name}`,
-          `Error: ${error?.message}`
+          `Error: ${errorMessage}`
         );
+        this.debugMode.debug('[GET DEVICE INFO]', 'Error details:', errorMessage);
 
         return null;
       }
@@ -198,8 +246,27 @@ export default class VeSync {
   public async startSession(): Promise<boolean> {
     this.debugMode.debug('[START SESSION]', 'Starting auth session...');
     const firstLoginSuccess = await this.login();
-    setInterval(this.login.bind(this), 1000 * 60 * 55);
+    
+    // Stoppe vorhandenes Interval, falls vorhanden
+    if (this.loginInterval) {
+      clearInterval(this.loginInterval);
+    }
+    
+    // Token alle 55 Minuten erneuern (Token ist 60 Minuten gültig)
+    this.loginInterval = setInterval(async () => {
+      this.debugMode.debug('[TOKEN REFRESH]', 'Refreshing token...');
+      await this.login();
+    }, 1000 * 60 * 55);
+    
     return firstLoginSuccess;
+  }
+
+  public stopSession(): void {
+    if (this.loginInterval) {
+      clearInterval(this.loginInterval);
+      this.loginInterval = undefined;
+      this.debugMode.debug('[STOP SESSION]', 'Session stopped');
+    }
   }
 
   private async login(): Promise<boolean> {
@@ -242,6 +309,19 @@ export default class VeSync {
           return false;
         }
 
+        // Prüfe auf API-Fehler
+        if (response.data.code !== 0 && response.data.code !== undefined) {
+          this.debugMode.debug(
+            '[LOGIN]',
+            'The authentication failed!! JSON:',
+            JSON.stringify(response.data)
+          );
+          this.log.error(
+            `Login failed: ${response.data.msg || 'Unknown error'} (Code: ${response.data.code})`
+          );
+          return false;
+        }
+
         const { result } = response.data;
         const { token, accountID } = result ?? {};
 
@@ -251,6 +331,7 @@ export default class VeSync {
             'The authentication failed!! JSON:',
             JSON.stringify(response.data)
           );
+          this.log.error('Login failed: Missing token or accountID');
           return false;
         }
 
@@ -275,7 +356,11 @@ export default class VeSync {
         await delay(500);
         return true;
       } catch (error: any) {
-        this.log.error('Failed to login', `Error: ${error?.message}`);
+        const errorMessage = error?.response?.data 
+          ? JSON.stringify(error.response.data)
+          : error?.message || 'Unknown error';
+        this.log.error('Failed to login', `Error: ${errorMessage}`);
+        this.debugMode.debug('[LOGIN]', 'Login error details:', errorMessage);
         return false;
       }
     });
@@ -306,6 +391,32 @@ export default class VeSync {
             JSON.stringify(response)
           );
 
+          return {
+            purifiers: [],
+            humidifiers: []
+          };
+        }
+
+        // Prüfe auf API-Fehler
+        if (response.data.code !== 0 && response.data.code !== undefined) {
+          const errorMsg = response.data.msg || 'Unknown error';
+          const errorCode = response.data.code;
+          this.debugMode.debug(
+            '[GET DEVICES]',
+            `API error: ${errorMsg} (Code: ${errorCode})`,
+            JSON.stringify(response.data)
+          );
+          
+          // Bei Token-Fehlern versuche erneut nach Login
+          if (errorCode === -11012001 || errorCode === -11012002) {
+            this.debugMode.debug('[GET DEVICES]', 'Token expired, attempting re-login...');
+            const loginSuccess = await this.login();
+            if (loginSuccess) {
+              // Versuche erneut
+              return await this.getDevices();
+            }
+          }
+          
           return {
             purifiers: [],
             humidifiers: []
@@ -370,7 +481,11 @@ export default class VeSync {
           humidifiers
         };
       } catch (error: any) {
-        this.log.error('Failed to get devices', `Error: ${error?.message}`);
+        const errorMessage = error?.response?.data 
+          ? JSON.stringify(error.response.data)
+          : error?.message || 'Unknown error';
+        this.log.error('Failed to get devices', `Error: ${errorMessage}`);
+        this.debugMode.debug('[GET DEVICES]', 'Error details:', errorMessage);
         return {
           purifiers: [],
           humidifiers: []
