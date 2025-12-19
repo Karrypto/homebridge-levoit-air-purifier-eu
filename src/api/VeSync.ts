@@ -124,12 +124,12 @@ export default class VeSync {
     this.APP_VERSION = this.options.appVersion ?? '5.7.60';
     this.COUNTRY_CODE = (this.options.countryCode ?? 'US').toUpperCase();
 
-    // Stabile Device-ID: wenn nicht gesetzt, deterministisch aus der E-Mail ableiten (UUID-like),
+    // Stabile Device-ID: wenn nicht gesetzt, deterministisch aus der E-Mail ableiten,
     // damit sich die "Device Identität" über Neustarts nicht ändert.
     const emailKey = (this.email ?? '').trim().toLowerCase();
     const hex = crypto.createHash('md5').update(emailKey).digest('hex'); // 32 chars
-    const derivedUuid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-    this.DEVICE_ID = this.options.deviceId ?? derivedUuid;
+    // Einige Backends akzeptieren hier nur ein "Token"-Format ohne Trennzeichen.
+    this.DEVICE_ID = this.options.deviceId ?? hex;
 
     this.AGENT = `VeSync/VeSync ${this.APP_VERSION}(F5321;HomeBridge-VeSync)`;
 
@@ -171,7 +171,6 @@ export default class VeSync {
     return {
       acceptLanguage: this.LANG,
       timeZone: this.TIMEZONE,
-      countryCode: this.COUNTRY_CODE,
       ...(includeAuth
         ? {
           accountID: this.accountId,

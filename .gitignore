@@ -1,5 +1,6 @@
 # Ignore compiled code
-dist
+# (dist wird im Fork committed, damit GitHub-Installationen ohne Build schneller und schlanker sind)
+# dist
 
 # ------------- Defaults ------------- #
 

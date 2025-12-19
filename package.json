@@ -4,7 +4,7 @@
   "displayName": "Levoit Air Purifier",
   "main": "dist/index.js",
   "license": "Apache-2.0",
-  "version": "3.1.1-karrypto.4",
+  "version": "3.1.1-karrypto.5",
   "private": false,
   "bugs": {
     "url": "https://github.com/Karrypto/homebridge-levoit-air-purifier/issues"
@@ -19,7 +19,6 @@
   },
   "scripts": {
     "remove-link": "npm -g remove homebridge-levoit-air-purifier",
-    "prepare": "npm run build",
     "prepublishOnly": "npm run lint && npm run build",
     "watch": "npm run build && npm link && nodemon",
     "lint": "eslint src/**.ts --max-warnings=0",
