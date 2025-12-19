@@ -1,0 +1,1 @@
+{"version":3,"file":"AutoMode.d.ts","sourceRoot":"","sources":["../../src/humidifierCharacteristics/AutoMode.ts"],"names":[],"mappings":"AAAA,OAAO,EACH,wBAAwB,EACxB,wBAAwB,EAG3B,MAAM,YAAY,CAAC;AAEpB,OAAO,EAAE,iBAAiB,EAAE,MAAM,uBAAuB,CAAC;AAG1D,QAAA,MAAM,cAAc,EAAE;IAClB,GAAG,EAAE,wBAAwB,CAAC;IAC9B,GAAG,EAAE,wBAAwB,CAAC;CACjC,GAAG,iBAWH,CAAC;AAEF,eAAe,cAAc,CAAC"}

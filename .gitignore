@@ -87,7 +87,7 @@ web_modules/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+# dist  # (wird im Fork committed für schnelle GitHub-Installs)
 
 # Gatsby files
 .cache/

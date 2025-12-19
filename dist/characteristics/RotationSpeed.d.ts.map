@@ -1,0 +1,1 @@
+{"version":3,"file":"RotationSpeed.d.ts","sourceRoot":"","sources":["../../src/characteristics/RotationSpeed.ts"],"names":[],"mappings":"AACA,OAAO,EACL,wBAAwB,EACxB,wBAAwB,EAGzB,MAAM,YAAY,CAAC;AAGpB,OAAO,EAAE,iBAAiB,EAAE,MAAM,uBAAuB,CAAC;AAW1D,QAAA,MAAM,cAAc,EAAE;IACpB,GAAG,EAAE,wBAAwB,CAAC;IAC9B,GAAG,EAAE,wBAAwB,CAAC;CAC/B,GAAG,iBA0BH,CAAC;AAEF,eAAe,cAAc,CAAC"}
