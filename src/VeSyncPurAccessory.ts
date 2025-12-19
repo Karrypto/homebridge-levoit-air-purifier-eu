@@ -43,6 +43,8 @@ export default class VeSyncPurAccessory {
     try {
       const { manufacturer, model, mac } = this.device;
 
+      // Homebridge Best Practice: AccessoryInformation vollständig ausfüllen
+      // Siehe: https://developers.homebridge.io/#/
       this.accessory
         .getService(this.platform.Service.AccessoryInformation)!
         .setCharacteristic(
@@ -50,11 +52,21 @@ export default class VeSyncPurAccessory {
           manufacturer
         )
         .setCharacteristic(this.platform.Characteristic.Model, model)
-        .setCharacteristic(this.platform.Characteristic.SerialNumber, mac);
+        .setCharacteristic(this.platform.Characteristic.SerialNumber, mac)
+        .setCharacteristic(
+          this.platform.Characteristic.FirmwareRevision,
+          '1.0.0' // Plugin-Version als Firmware-Revision
+        );
 
       this.airPurifierService =
         this.accessory.getService(this.platform.Service.AirPurifier) ||
         this.accessory.addService(this.platform.Service.AirPurifier);
+
+      // Homebridge Best Practice: Service-Name setzen für bessere Identifikation in der Home App
+      this.airPurifierService.setCharacteristic(
+        this.platform.Characteristic.Name,
+        this.device.name
+      );
 
       const sensor = additional[VeSyncAdditionalType.Sensor];
       if (sensor) {
@@ -154,8 +166,14 @@ export default class VeSyncPurAccessory {
         .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
         .onGet(FilterChangeIndication.get.bind(this));
 
+      // Homebridge Best Practice: Props für FilterLifeLevel definieren
       this.airPurifierService
         .getCharacteristic(this.platform.Characteristic.FilterLifeLevel)
+        .setProps({
+          minValue: 0,
+          maxValue: 100,
+          minStep: 1
+        })
         .onGet(FilterLifeLevel.get.bind(this));
     } catch (error: any) {
       this.platform.log.error(`Error: ${error?.message}`);

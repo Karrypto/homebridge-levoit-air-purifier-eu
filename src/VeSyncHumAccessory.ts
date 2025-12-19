@@ -39,6 +39,7 @@ export default class VeSyncHumAccessory {
     try {
       const { manufacturer, model, mac } = this.device;
 
+      // Homebridge Best Practice: AccessoryInformation vollständig ausfüllen
       this.accessory
         .getService(this.platform.Service.AccessoryInformation)!
         .setCharacteristic(
@@ -46,11 +47,21 @@ export default class VeSyncHumAccessory {
           manufacturer
         )
         .setCharacteristic(this.platform.Characteristic.Model, model)
-        .setCharacteristic(this.platform.Characteristic.SerialNumber, mac);
+        .setCharacteristic(this.platform.Characteristic.SerialNumber, mac)
+        .setCharacteristic(
+          this.platform.Characteristic.FirmwareRevision,
+          '1.0.0'
+        );
 
       this.humidifierService =
         this.accessory.getService(this.platform.Service.HumidifierDehumidifier) ||
         this.accessory.addService(this.platform.Service.HumidifierDehumidifier);
+
+      // Homebridge Best Practice: Service-Name setzen
+      this.humidifierService.setCharacteristic(
+        this.platform.Characteristic.Name,
+        this.device.name
+      );
 
       this.humidifierService
         .getCharacteristic(this.platform.Characteristic.Active)
