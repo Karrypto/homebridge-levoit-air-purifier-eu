@@ -27,7 +27,7 @@ class VeSyncHumAccessory {
                 .setCharacteristic(this.platform.Characteristic.Manufacturer, manufacturer)
                 .setCharacteristic(this.platform.Characteristic.Model, model)
                 .setCharacteristic(this.platform.Characteristic.SerialNumber, mac)
-                .setCharacteristic(this.platform.Characteristic.FirmwareRevision, '1.0.0');
+                .setCharacteristic(this.platform.Characteristic.FirmwareRevision, this.device.model || '1.0.0');
             this.humidifierService =
                 this.accessory.getService(this.platform.Service.HumidifierDehumidifier) ||
                     this.accessory.addService(this.platform.Service.HumidifierDehumidifier);

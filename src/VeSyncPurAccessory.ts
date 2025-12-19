@@ -55,7 +55,7 @@ export default class VeSyncPurAccessory {
         .setCharacteristic(this.platform.Characteristic.SerialNumber, mac)
         .setCharacteristic(
           this.platform.Characteristic.FirmwareRevision,
-          '1.0.0' // Plugin-Version als Firmware-Revision
+          this.device.model || '1.0.0'
         );
 
       this.airPurifierService =

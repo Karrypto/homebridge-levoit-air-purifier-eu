@@ -160,7 +160,7 @@ class Platform {
                 ]
             });
         }, {});
-        this.cachedAccessories.map((accessory) => {
+        this.cachedAccessories.forEach((accessory) => {
             try {
                 const exists = registeredDevices[accessory.UUID];
                 const additional = additionalAccessories[accessory.UUID];

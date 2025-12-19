@@ -50,7 +50,7 @@ export default class VeSyncHumAccessory {
         .setCharacteristic(this.platform.Characteristic.SerialNumber, mac)
         .setCharacteristic(
           this.platform.Characteristic.FirmwareRevision,
-          '1.0.0'
+          this.device.model || '1.0.0'
         );
 
       this.humidifierService =

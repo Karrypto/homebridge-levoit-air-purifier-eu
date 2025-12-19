@@ -485,15 +485,15 @@ export default class VeSync {
         }
 
         if (response?.data?.code !== 0 && response?.data?.code !== undefined) {
-        this.debugMode.debug(
-          '[LOGIN]',
-          'The authentication failed!! JSON:',
-          JSON.stringify(response.data)
-        );
-        this.log.error(
-          `Login failed: ${response.data.msg || 'Unknown error'} (Code: ${response.data.code})`
-        );
-        return false;
+          this.debugMode.debug(
+            '[LOGIN]',
+            'The authentication failed!! JSON:',
+            JSON.stringify(response.data)
+          );
+          this.log.error(
+            `Login failed: ${response.data.msg || 'Unknown error'} (Code: ${response.data.code})`
+          );
+          return false;
         }
       }
 
