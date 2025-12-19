@@ -85,7 +85,9 @@ export default class VeSync {
   // VeSync Server blockiert gelegentlich zu alte appVersion Werte ("app version is too low").
   // Daher nutzen wir hier eine "moderne" App-Version als Kompatibilitätswert.
   private readonly APP_VERSION = '5.7.60';
-  private readonly AGENT = `VeSync/VeSync 3.0.51(F5321;HomeBridge-VeSync ${this.APP_VERSION})`;
+  // WICHTIG: VeSync validiert die App-Version offenbar auch (oder primär) über den User-Agent Prefix `VeSync/VeSync <version>`.
+  // Daher muss hier ebenfalls eine "moderne" App-Version stehen, sonst kommt `app version is too low`.
+  private readonly AGENT = `VeSync/VeSync ${this.APP_VERSION}(F5321;HomeBridge-VeSync)`;
   private readonly TIMEZONE = 'America/New_York';
   private readonly OS = 'HomeBridge-VeSync';
   private readonly LANG = 'en';
@@ -387,7 +389,15 @@ export default class VeSync {
           ...this.generateBody()
         },
         {
-          ...this.AXIOS_OPTIONS
+          ...this.AXIOS_OPTIONS,
+          // Auch beim Login die erwarteten Header setzen (einige Backends prüfen appversion/user-agent bereits hier).
+          headers: {
+            'content-type': 'application/json',
+            'accept-language': this.LANG,
+            'user-agent': this.AGENT,
+            appversion: this.APP_VERSION,
+            tz: this.TIMEZONE,
+          }
         }
       );
 
