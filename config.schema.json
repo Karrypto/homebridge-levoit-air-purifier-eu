@@ -23,6 +23,12 @@
         "required": true,
         "description": "VeSync's account password"
       },
+      "countryCode": {
+        "title": "Country Code",
+        "type": "string",
+        "default": "US",
+        "description": "Wichtig für internationale Accounts. EU-Accounts nutzen typischerweise den EU-Endpoint. Beispiel: DE"
+      },
       "vesyncAppVersion": {
         "title": "VeSync App Version (Advanced)",
         "type": "string",

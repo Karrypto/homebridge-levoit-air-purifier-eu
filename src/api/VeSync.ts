@@ -81,6 +81,10 @@ export interface VeSyncClientOptions {
   appVersion?: string;
   /** Stabile Device-ID / devToken (einige Backends verlangen das beim Login). */
   deviceId?: string;
+  /** Country Code (wichtig für internationale Accounts; EU-Accounts laufen i. d. R. über smartapi.vesync.eu). */
+  countryCode?: string;
+  /** Optional: Endpoint override, z.B. https://smartapi.vesync.eu */
+  baseURL?: string;
 }
 
 export default class VeSync {
@@ -93,6 +97,8 @@ export default class VeSync {
   // Daher nutzen wir hier eine "moderne" App-Version als Kompatibilitätswert.
   private readonly APP_VERSION: string;
   private readonly DEVICE_ID: string;
+  private readonly COUNTRY_CODE: string;
+  private baseURL: string;
   // WICHTIG: VeSync validiert die App-Version offenbar auch (oder primär) über den User-Agent Prefix `VeSync/VeSync <version>`.
   // Daher muss hier ebenfalls eine "moderne" App-Version stehen, sonst kommt `app version is too low`.
   private readonly AGENT: string;
@@ -101,10 +107,12 @@ export default class VeSync {
   private readonly OS = 'Android';
   private readonly LANG = 'en';
 
-  private readonly AXIOS_OPTIONS = {
-    baseURL: 'https://smartapi.vesync.com',
-    timeout: 30000
-  };
+  private get AXIOS_OPTIONS() {
+    return {
+      baseURL: this.baseURL,
+      timeout: 30000
+    };
+  }
 
   constructor(
     private readonly email: string,
@@ -114,6 +122,7 @@ export default class VeSync {
     private readonly options: VeSyncClientOptions = {}
   ) {
     this.APP_VERSION = this.options.appVersion ?? '5.7.60';
+    this.COUNTRY_CODE = (this.options.countryCode ?? 'US').toUpperCase();
 
     // Stabile Device-ID: wenn nicht gesetzt, deterministisch aus der E-Mail ableiten (UUID-like),
     // damit sich die "Device Identität" über Neustarts nicht ändert.
@@ -123,6 +132,29 @@ export default class VeSync {
     this.DEVICE_ID = this.options.deviceId ?? derivedUuid;
 
     this.AGENT = `VeSync/VeSync ${this.APP_VERSION}(F5321;HomeBridge-VeSync)`;
+
+    // Endpoint-Handling: EU-Accounts laufen i. d. R. über smartapi.vesync.eu
+    this.baseURL = this.options.baseURL ?? (this.isEuCountryCode(this.COUNTRY_CODE)
+      ? 'https://smartapi.vesync.eu'
+      : 'https://smartapi.vesync.com');
+  }
+
+  private isEuCountryCode(countryCode: string) {
+    // Basierend auf TSVESync Doku: EU Accounts => smartapi.vesync.eu
+    // (siehe https://github.com/mickgiles/homebridge-tsvesync)
+    const euLike = new Set([
+      // EU27
+      'AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE',
+      // EEA/Europe often routed to EU endpoint
+      'GB','NO','IS','LI','CH'
+    ]);
+    return euLike.has((countryCode ?? '').toUpperCase());
+  }
+
+  private getAlternateBaseURL() {
+    return this.baseURL.includes('vesync.eu')
+      ? 'https://smartapi.vesync.com'
+      : 'https://smartapi.vesync.eu';
   }
 
   private generateDetailBody() {
@@ -139,6 +171,7 @@ export default class VeSync {
     return {
       acceptLanguage: this.LANG,
       timeZone: this.TIMEZONE,
+      countryCode: this.COUNTRY_CODE,
       ...(includeAuth
         ? {
           accountID: this.accountId,
@@ -398,30 +431,36 @@ export default class VeSync {
         .update(this.password)
         .digest('hex');
 
-      const response = await axios.post(
-        'cloud/v1/user/login',
-        {
-          email: this.email,
-          password: pwdHashed,
-          devToken: this.DEVICE_ID,
-          userType: 1,
-          method: 'login',
-          token: '',
-          ...this.generateDetailBody(),
-          ...this.generateBody()
-        },
-        {
-          ...this.AXIOS_OPTIONS,
-          // Auch beim Login die erwarteten Header setzen (einige Backends prüfen appversion/user-agent bereits hier).
-          headers: {
-            'content-type': 'application/json',
-            'accept-language': this.LANG,
-            'user-agent': this.AGENT,
-            appversion: this.APP_VERSION,
-            tz: this.TIMEZONE,
+      // Manche Accounts schlagen fehl, wenn man den falschen regionalen Endpoint nutzt.
+      // Daher: erst aktueller baseURL, bei bestimmten Fehlern einmal den Alternate probieren.
+      const tryLoginOnce = async () => {
+        return axios.post(
+          'cloud/v1/user/login',
+          {
+            email: this.email,
+            password: pwdHashed,
+            devToken: this.DEVICE_ID,
+            userType: 1,
+            method: 'login',
+            token: '',
+            ...this.generateDetailBody(),
+            ...this.generateBody()
+          },
+          {
+            ...this.AXIOS_OPTIONS,
+            // Auch beim Login die erwarteten Header setzen (einige Backends prüfen appversion/user-agent bereits hier).
+            headers: {
+              'content-type': 'application/json',
+              'accept-language': this.LANG,
+              'user-agent': this.AGENT,
+              appversion: this.APP_VERSION,
+              tz: this.TIMEZONE,
+            }
           }
-        }
-      );
+        );
+      };
+
+      let response = await tryLoginOnce();
 
       if (!response?.data) {
         this.debugMode.debug(
@@ -434,6 +473,19 @@ export default class VeSync {
 
       // Prüfe auf API-Fehler
       if (response.data.code !== 0 && response.data.code !== undefined) {
+        // Fallback: auf anderen Endpoint wechseln und nochmals versuchen
+        // (VeSync liefert hier oft generische Fehlertexte, auch wenn eigentlich Region falsch ist)
+        const code = response.data.code;
+        if (code === -11012022) {
+          const alternate = this.getAlternateBaseURL();
+          if (alternate !== this.baseURL) {
+            this.debugMode.debug('[LOGIN]', `Retrying login on alternate endpoint: ${alternate}`);
+            this.baseURL = alternate;
+            response = await tryLoginOnce();
+          }
+        }
+
+        if (response?.data?.code !== 0 && response?.data?.code !== undefined) {
         this.debugMode.debug(
           '[LOGIN]',
           'The authentication failed!! JSON:',
@@ -443,6 +495,7 @@ export default class VeSync {
           `Login failed: ${response.data.msg || 'Unknown error'} (Code: ${response.data.code})`
         );
         return false;
+        }
       }
 
       const { result } = response.data;
