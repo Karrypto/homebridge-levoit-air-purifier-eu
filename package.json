@@ -4,15 +4,16 @@
   "displayName": "Levoit Air Purifier EU",
   "main": "dist/index.js",
   "license": "Apache-2.0",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": false,
   "bugs": {
     "url": "https://github.com/Karrypto/homebridge-levoit-air-purifier-eu/issues"
   },
   "repository": {
-    "url": "git://github.com/Karrypto/homebridge-levoit-air-purifier-eu.git",
-    "type": "git"
+    "type": "git",
+    "url": "https://github.com/Karrypto/homebridge-levoit-air-purifier-eu.git"
   },
+  "changelog": "https://github.com/Karrypto/homebridge-levoit-air-purifier-eu/blob/master/CHANGELOG.md",
   "scripts": {
     "remove-link": "npm -g remove homebridge-levoit-air-purifier",
     "prepublishOnly": "npm run lint && npm run build",
