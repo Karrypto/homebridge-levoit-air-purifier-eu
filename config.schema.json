@@ -1,0 +1,114 @@
+{
+  "pluginAlias": "LevoitAirPurifiers",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "required": true,
+        "default": "Levoit Air Purifiers"
+      },
+      "email": {
+        "title": "Email",
+        "type": "string",
+        "format": "email",
+        "required": true,
+        "description": "Your VeSync account email."
+      },
+      "password": {
+        "title": "Password",
+        "type": "string",
+        "format": "password",
+        "required": true,
+        "description": "Your VeSync account password."
+      },
+      "countryCode": {
+        "title": "Country Code",
+        "type": "string",
+        "default": "DE",
+        "oneOf": [
+          { "title": "🇩🇪 Germany (DE)", "enum": ["DE"] },
+          { "title": "🇺🇸 United States (US)", "enum": ["US"] },
+          { "title": "🇬🇧 United Kingdom (GB)", "enum": ["GB"] },
+          { "title": "🇫🇷 France (FR)", "enum": ["FR"] },
+          { "title": "🇮🇹 Italy (IT)", "enum": ["IT"] },
+          { "title": "🇪🇸 Spain (ES)", "enum": ["ES"] },
+          { "title": "🇳🇱 Netherlands (NL)", "enum": ["NL"] },
+          { "title": "🇦🇹 Austria (AT)", "enum": ["AT"] },
+          { "title": "🇨🇭 Switzerland (CH)", "enum": ["CH"] },
+          { "title": "🇵🇱 Poland (PL)", "enum": ["PL"] },
+          { "title": "🇸🇪 Sweden (SE)", "enum": ["SE"] },
+          { "title": "🇳🇴 Norway (NO)", "enum": ["NO"] },
+          { "title": "🇩🇰 Denmark (DK)", "enum": ["DK"] },
+          { "title": "🇫🇮 Finland (FI)", "enum": ["FI"] },
+          { "title": "🇧🇪 Belgium (BE)", "enum": ["BE"] },
+          { "title": "🇮🇪 Ireland (IE)", "enum": ["IE"] },
+          { "title": "🇵🇹 Portugal (PT)", "enum": ["PT"] },
+          { "title": "🇨🇦 Canada (CA)", "enum": ["CA"] },
+          { "title": "🇦🇺 Australia (AU)", "enum": ["AU"] },
+          { "title": "🇳🇿 New Zealand (NZ)", "enum": ["NZ"] },
+          { "title": "🇯🇵 Japan (JP)", "enum": ["JP"] },
+          { "title": "🇸🇬 Singapore (SG)", "enum": ["SG"] },
+          { "title": "🇲🇽 Mexico (MX)", "enum": ["MX"] }
+        ],
+        "description": "Select the country where your VeSync account was created. EU countries use the EU endpoint, others use the US endpoint."
+      },
+      "enableDebugMode": {
+        "title": "Enable Debug Mode",
+        "type": "boolean",
+        "default": false,
+        "description": "Enable detailed logs."
+      },
+      "refreshInterval": {
+        "title": "Status Refresh Interval",
+        "type": "integer",
+        "default": 5,
+        "minimum": 5,
+        "maximum": 300,
+        "description": "Seconds between VeSync status refreshes for each device."
+      },
+      "rediscoveryInterval": {
+        "title": "Rediscovery Interval",
+        "type": "integer",
+        "default": 0,
+        "minimum": 0,
+        "maximum": 1440,
+        "description": "Minutes between device rediscovery runs. Set to 0 to disable."
+      },
+      "includeDevices": {
+        "title": "Include Devices",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "title": "Device name or UUID",
+          "type": "string"
+        },
+        "description": "Only expose matching VeSync devices. Leave empty to include all supported devices."
+      },
+      "excludeDevices": {
+        "title": "Exclude Devices",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "title": "Device name or UUID",
+          "type": "string"
+        },
+        "description": "Hide matching VeSync devices. Exclusions take priority over inclusions."
+      },
+      "experimentalFeatures": {
+        "title": "Experimental Features",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "title": "Feature",
+          "type": "string",
+          "enum": ["DeviceDisplay", "Humidifiers"]
+        },
+        "description": "Enable display control or humidifier support."
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"version":3,"file":"FilterLifeLevel.js","sourceRoot":"","sources":["../../src/characteristics/FilterLifeLevel.ts"],"names":[],"mappings":";;AAQA,MAAM,cAAc,GAEI;IACtB,GAAG,EAAE,KAAK;;QACR,MAAM,IAAI,CAAC,MAAM,CAAC,UAAU,EAAE,CAAC;QAE/B,OAAO,MAAA,IAAI,CAAC,MAAM,CAAC,UAAU,mCAAI,CAAC,CAAC;IACrC,CAAC;CACF,CAAC;AAEF,kBAAe,cAAc,CAAC"}
