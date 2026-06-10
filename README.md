@@ -114,7 +114,7 @@ Running the plugin as a child bridge keeps it isolated from other Homebridge plu
   "password": "your-password",
   "countryCode": "DE",
   "enableDebugMode": false,
-  "refreshInterval": 5,
+  "refreshInterval": 120,
   "rediscoveryInterval": 0,
   "includeDevices": [],
   "excludeDevices": [],
@@ -122,7 +122,7 @@ Running the plugin as a child bridge keeps it isolated from other Homebridge plu
 }
 ```
 
-- `refreshInterval`: Seconds between VeSync status refreshes per device. Minimum: `5`.
+- `refreshInterval`: Seconds between VeSync status refreshes per device. Minimum: `120`. Lower values can exhaust the VeSync daily request quota.
 - `rediscoveryInterval`: Minutes between device rediscovery runs. Use `0` to disable. Minimum when enabled: `5`.
 - `includeDevices`: Optional list of exact device names or UUIDs to expose.
 - `excludeDevices`: Optional list of exact device names or UUIDs to hide. Exclusions take priority.

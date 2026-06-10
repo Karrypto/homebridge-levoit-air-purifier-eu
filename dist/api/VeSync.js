@@ -70,9 +70,12 @@ const TERMINAL_ID_PATTERN = /^[a-f0-9]{16}$/;
 const SESSION_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 const SESSION_REFRESH_MS = 55 * 60 * 1000;
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
-exports.DEFAULT_DEVICE_REFRESH_INTERVAL_MS = 5 * 1000;
-exports.MIN_DEVICE_REFRESH_INTERVAL_MS = 5 * 1000;
-exports.MAX_DEVICE_REFRESH_INTERVAL_MS = 300 * 1000;
+exports.DEFAULT_DEVICE_REFRESH_INTERVAL_MS = 120 * 1000;
+exports.MIN_DEVICE_REFRESH_INTERVAL_MS = 120 * 1000;
+exports.MAX_DEVICE_REFRESH_INTERVAL_MS = 900 * 1000;
+const DAILY_REQUEST_QUOTA_EXCEEDED_CODE = -16906086;
+const QUOTA_PAUSE_MS = 60 * 60 * 1000;
+const DEVICE_LIST_CACHE_MS = 2 * 1000;
 const EU_COUNTRY_CODES = new Set([
     'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE',
     'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT',
@@ -187,6 +190,8 @@ class VeSync {
         this.log = log;
         this.options = options;
         this.unsupportedDeviceKeys = new Set();
+        this.quotaPausedUntil = 0;
+        this.quotaWarningLogged = false;
         this.APP_VERSION = '5.7.16';
         this.CLIENT_VERSION = `VeSync ${this.APP_VERSION}`;
         this.AGENT = 'okhttp/3.12.1';
@@ -230,6 +235,29 @@ class VeSync {
             throw new Error('The user is not logged in');
         }
         return this.api;
+    }
+    isQuotaPaused() {
+        return Date.now() < this.quotaPausedUntil;
+    }
+    markQuotaExceeded(message) {
+        this.quotaPausedUntil = Date.now() + QUOTA_PAUSE_MS;
+        if (this.quotaWarningLogged) {
+            return;
+        }
+        this.quotaWarningLogged = true;
+        this.log.error(`VeSync daily request quota reached${message ? `: ${message}` : ''}. ` +
+            'Commands and status refreshes are paused for one hour to avoid repeated rejected requests.');
+    }
+    handleQuotaResponse(code, message) {
+        if (code !== DAILY_REQUEST_QUOTA_EXCEEDED_CODE) {
+            return false;
+        }
+        this.markQuotaExceeded(message);
+        return true;
+    }
+    clearQuotaPause() {
+        this.quotaPausedUntil = 0;
+        this.quotaWarningLogged = false;
     }
     loadPersistedSession() {
         if (!this.sessionFilePath)
@@ -363,8 +391,12 @@ class VeSync {
     }
     async sendCommand(fan, method, body = {}) {
         return lock.acquire('api-call', async () => {
-            var _a, _b, _c;
+            var _a, _b, _c, _d;
             try {
+                if (this.isQuotaPaused()) {
+                    this.debugMode.debug('[SEND COMMAND]', `Skipped ${method} for ${fan.name}: VeSync quota pause active`);
+                    return false;
+                }
                 this.debugMode.debug('[SEND COMMAND]', `${method} to ${fan.name}`);
                 for (let attempt = 0; attempt < 2; attempt++) {
                     const api = this.requireApiClient();
@@ -380,11 +412,14 @@ class VeSync {
                         return true;
                     }
                     const errorCode = (_b = response === null || response === void 0 ? void 0 : response.data) === null || _b === void 0 ? void 0 : _b.code;
+                    if (this.handleQuotaResponse(errorCode, (_c = response === null || response === void 0 ? void 0 : response.data) === null || _c === void 0 ? void 0 : _c.msg)) {
+                        return false;
+                    }
                     if (await this.refreshSessionForExpiredToken(errorCode, attempt)) {
                         this.debugMode.debug('[SEND COMMAND]', 'Token expired, re-login...');
                         continue;
                     }
-                    this.log.error(`Command ${method} failed: ${(_c = response === null || response === void 0 ? void 0 : response.data) === null || _c === void 0 ? void 0 : _c.msg} (${errorCode})`);
+                    this.log.error(`Command ${method} failed: ${(_d = response === null || response === void 0 ? void 0 : response.data) === null || _d === void 0 ? void 0 : _d.msg} (${errorCode})`);
                     return false;
                 }
                 return false;
@@ -398,6 +433,10 @@ class VeSync {
     async getDeviceInfo(fan, humidifier = false) {
         return lock.acquire('api-call', async () => {
             try {
+                if (this.isQuotaPaused()) {
+                    this.debugMode.debug('[GET DEVICE INFO]', `Skipped for ${fan.name}: VeSync quota pause active`);
+                    return null;
+                }
                 this.debugMode.debug('[GET DEVICE INFO]', 'Fetching...');
                 for (let attempt = 0; attempt < 2; attempt++) {
                     const api = this.requireApiClient();
@@ -410,6 +449,9 @@ class VeSync {
                         return null;
                     if (response.data.code !== 0 && response.data.code !== undefined) {
                         const errorCode = response.data.code;
+                        if (this.handleQuotaResponse(errorCode, response.data.msg)) {
+                            return null;
+                        }
                         if (await this.refreshSessionForExpiredToken(errorCode, attempt)) {
                             continue;
                         }
@@ -621,7 +663,7 @@ class VeSync {
             return false;
         }
     }
-    async requestDeviceList() {
+    async fetchDeviceList() {
         var _a, _b;
         for (let attempt = 0; attempt < 2; attempt++) {
             const api = this.requireApiClient();
@@ -637,6 +679,9 @@ class VeSync {
             }
             if (response.data.code !== 0 && response.data.code !== undefined) {
                 const errorCode = response.data.code;
+                if (this.handleQuotaResponse(errorCode, response.data.msg)) {
+                    return null;
+                }
                 if (await this.refreshSessionForExpiredToken(errorCode, attempt)) {
                     continue;
                 }
@@ -645,9 +690,37 @@ class VeSync {
             if (!Array.isArray((_b = (_a = response.data) === null || _a === void 0 ? void 0 : _a.result) === null || _b === void 0 ? void 0 : _b.list)) {
                 return null;
             }
+            this.clearQuotaPause();
             return response.data.result.list;
         }
         return null;
+    }
+    async requestDeviceList() {
+        if (this.isQuotaPaused()) {
+            this.debugMode.debug('[GET DEVICES]', 'Skipped device list request: VeSync quota pause active');
+            return null;
+        }
+        const now = Date.now();
+        if (this.deviceListCache && now < this.deviceListCache.expiresAt) {
+            return this.deviceListCache.list;
+        }
+        if (this.deviceListRequest) {
+            return this.deviceListRequest;
+        }
+        this.deviceListRequest = this.fetchDeviceList();
+        try {
+            const list = await this.deviceListRequest;
+            if (list) {
+                this.deviceListCache = {
+                    list,
+                    expiresAt: Date.now() + DEVICE_LIST_CACHE_MS
+                };
+            }
+            return list;
+        }
+        finally {
+            this.deviceListRequest = undefined;
+        }
     }
     async getDeviceSnapshot(fan) {
         return lock.acquire('api-call', async () => {

@@ -65,10 +65,10 @@
       "refreshInterval": {
         "title": "Status Refresh Interval",
         "type": "integer",
-        "default": 5,
-        "minimum": 5,
-        "maximum": 300,
-        "description": "Seconds between VeSync status refreshes for each device."
+        "default": 120,
+        "minimum": 120,
+        "maximum": 900,
+        "description": "Seconds between VeSync status refreshes for each device. Lower values can exhaust the VeSync daily request quota."
       },
       "rediscoveryInterval": {
         "title": "Rediscovery Interval",

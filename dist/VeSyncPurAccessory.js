@@ -23,7 +23,7 @@ class VeSyncPurAccessory {
     }
     async refreshState() {
         var _a, _b, _c, _d;
-        await this.device.updateInfo(true);
+        await this.device.updateInfo();
         (_a = this.airPurifierActiveCharacteristic) === null || _a === void 0 ? void 0 : _a.updateValue(this.device.isOn
             ? this.platform.Characteristic.Active.ACTIVE
             : this.platform.Characteristic.Active.INACTIVE);

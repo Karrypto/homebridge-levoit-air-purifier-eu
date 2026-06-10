@@ -46,6 +46,10 @@ export default class VeSync {
     private tokenExpiresAt?;
     private loginInterval?;
     private readonly unsupportedDeviceKeys;
+    private quotaPausedUntil;
+    private quotaWarningLogged;
+    private deviceListCache?;
+    private deviceListRequest?;
     private terminalId?;
     private appId?;
     private readonly APP_VERSION;
@@ -66,6 +70,10 @@ export default class VeSync {
     private getAlternateBaseURL;
     private createAuthenticatedApiClient;
     private requireApiClient;
+    private isQuotaPaused;
+    private markQuotaExceeded;
+    private handleQuotaResponse;
+    private clearQuotaPause;
     private loadPersistedSession;
     private loadPersistedDeviceIds;
     private isValidPersistedSession;
@@ -82,6 +90,7 @@ export default class VeSync {
     private login;
     private loginInternal;
     private loginLegacy;
+    private fetchDeviceList;
     private requestDeviceList;
     getDeviceSnapshot(fan: VeSyncGeneric): Promise<any | null>;
     getDevices(): Promise<{

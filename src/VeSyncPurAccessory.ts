@@ -46,7 +46,7 @@ export default class VeSyncPurAccessory {
   }
 
   public async refreshState() {
-    await this.device.updateInfo(true);
+    await this.device.updateInfo();
 
     this.airPurifierActiveCharacteristic?.updateValue(
       this.device.isOn

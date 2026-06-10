@@ -77,10 +77,11 @@ test('routes non-EU countries to the default VeSync endpoint', () => {
 });
 
 test('normalizes refresh intervals to the supported range', () => {
-  assert.equal(normalizeRefreshIntervalMs(undefined), 5000);
-  assert.equal(normalizeRefreshIntervalMs(1), 5000);
-  assert.equal(normalizeRefreshIntervalMs(30), 30000);
-  assert.equal(normalizeRefreshIntervalMs(1000), 300000);
+  assert.equal(normalizeRefreshIntervalMs(undefined), 120000);
+  assert.equal(normalizeRefreshIntervalMs(1), 120000);
+  assert.equal(normalizeRefreshIntervalMs(30), 120000);
+  assert.equal(normalizeRefreshIntervalMs(300), 300000);
+  assert.equal(normalizeRefreshIntervalMs(1000), 900000);
 });
 
 test('binds session ownership to email and country', () => {

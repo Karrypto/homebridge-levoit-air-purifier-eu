@@ -12,7 +12,7 @@
     "SECURITY.md"
   ],
   "license": "Apache-2.0",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "private": false,
   "bugs": {
     "url": "https://github.com/Karrypto/homebridge-levoit-air-purifier-eu/issues"
