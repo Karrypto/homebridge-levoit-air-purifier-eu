@@ -44,6 +44,7 @@ export type AdditionalAccessories = Partial<Record<
 
 const MIN_REDISCOVERY_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_REDISCOVERY_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const MISSED_DISCOVERIES_BEFORE_REMOVAL = 3;
 
 const normalizeDeviceFilter = (devices?: string[]) =>
   new Set(
@@ -94,6 +95,7 @@ export default class Platform implements DynamicPlatformPlugin {
   private rediscoveryTimer?: ReturnType<typeof setInterval>;
   private statusRefreshInProgress = false;
   private statusRefreshTimer?: ReturnType<typeof setInterval>;
+  private readonly missingCachedAccessoryCounts = new Map<string, number>();
 
   constructor(
     public readonly log: Logger,
@@ -370,6 +372,13 @@ export default class Platform implements DynamicPlatformPlugin {
     );
     const additionalAccessories = new Map<string, VeSyncPlatformAccessory[]>();
 
+    if (registeredDeviceIds.size === 0 && this.cachedAccessories.length > 0) {
+      this.log.warn(
+        'VeSync discovery returned no registered devices; keeping cached accessories to avoid removing HomeKit devices after a temporary API issue.'
+      );
+      return;
+    }
+
     this.cachedAdditional.forEach((accessory) => {
       const { parent } = accessory.context as VeSyncAdditionalContext;
       additionalAccessories.set(parent, [
@@ -382,6 +391,22 @@ export default class Platform implements DynamicPlatformPlugin {
       try {
         const exists = registeredDeviceIds.has(accessory.UUID);
         const additional = additionalAccessories.get(accessory.UUID) ?? [];
+
+        if (exists) {
+          this.missingCachedAccessoryCounts.delete(accessory.UUID);
+          return;
+        }
+
+        const missedDiscoveries =
+          (this.missingCachedAccessoryCounts.get(accessory.UUID) ?? 0) + 1;
+        this.missingCachedAccessoryCounts.set(accessory.UUID, missedDiscoveries);
+
+        if (missedDiscoveries < MISSED_DISCOVERIES_BEFORE_REMOVAL) {
+          this.log.warn(
+            `Cached accessory not found in VeSync discovery (${missedDiscoveries}/${MISSED_DISCOVERIES_BEFORE_REMOVAL}): ${accessory.displayName}`
+          );
+          return;
+        }
 
         if (!exists) {
           this.log.info('Remove cached accessory:', accessory.displayName);

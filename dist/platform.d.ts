@@ -49,6 +49,7 @@ export default class Platform implements DynamicPlatformPlugin {
     private rediscoveryTimer?;
     private statusRefreshInProgress;
     private statusRefreshTimer?;
+    private readonly missingCachedAccessoryCounts;
     constructor(log: Logger, config: Config, api: API);
     configureAccessory(accessory: VeSyncPlatformAccessory): void;
     private cleanAccessories;

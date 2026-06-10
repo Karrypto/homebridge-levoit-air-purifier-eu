@@ -19,6 +19,7 @@ var VeSyncAdditionalType;
 })(VeSyncAdditionalType || (exports.VeSyncAdditionalType = VeSyncAdditionalType = {}));
 const MIN_REDISCOVERY_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_REDISCOVERY_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const MISSED_DISCOVERIES_BEFORE_REMOVAL = 3;
 const normalizeDeviceFilter = (devices) => new Set((devices !== null && devices !== void 0 ? devices : [])
     .map((device) => device.trim().toLowerCase())
     .filter((device) => device.length > 0));
@@ -41,6 +42,7 @@ class Platform {
         this.cachedAdditional = [];
         this.discoveryInProgress = false;
         this.statusRefreshInProgress = false;
+        this.missingCachedAccessoryCounts = new Map();
         const { email, password, enableDebugMode, countryCode, excludeDevices, includeDevices, rediscoveryInterval, refreshInterval } = (_a = this.config) !== null && _a !== void 0 ? _a : {};
         this.debugger = new debugMode_1.default(Boolean(enableDebugMode), this.log);
         this.excludeDevices = normalizeDeviceFilter(excludeDevices);
@@ -235,6 +237,10 @@ class Platform {
     checkOldDevices() {
         const registeredDeviceIds = new Set(this.registeredDevices.map((device) => device.UUID));
         const additionalAccessories = new Map();
+        if (registeredDeviceIds.size === 0 && this.cachedAccessories.length > 0) {
+            this.log.warn('VeSync discovery returned no registered devices; keeping cached accessories to avoid removing HomeKit devices after a temporary API issue.');
+            return;
+        }
         this.cachedAdditional.forEach((accessory) => {
             var _a;
             const { parent } = accessory.context;
@@ -244,10 +250,20 @@ class Platform {
             ]);
         });
         this.cachedAccessories.forEach((accessory) => {
-            var _a;
+            var _a, _b;
             try {
                 const exists = registeredDeviceIds.has(accessory.UUID);
                 const additional = (_a = additionalAccessories.get(accessory.UUID)) !== null && _a !== void 0 ? _a : [];
+                if (exists) {
+                    this.missingCachedAccessoryCounts.delete(accessory.UUID);
+                    return;
+                }
+                const missedDiscoveries = ((_b = this.missingCachedAccessoryCounts.get(accessory.UUID)) !== null && _b !== void 0 ? _b : 0) + 1;
+                this.missingCachedAccessoryCounts.set(accessory.UUID, missedDiscoveries);
+                if (missedDiscoveries < MISSED_DISCOVERIES_BEFORE_REMOVAL) {
+                    this.log.warn(`Cached accessory not found in VeSync discovery (${missedDiscoveries}/${MISSED_DISCOVERIES_BEFORE_REMOVAL}): ${accessory.displayName}`);
+                    return;
+                }
                 if (!exists) {
                     this.log.info('Remove cached accessory:', accessory.displayName);
                     this.api.unregisterPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [

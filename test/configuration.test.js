@@ -18,6 +18,7 @@ const Active = require('../dist/characteristics/Active').default;
 const RotationSpeed = require('../dist/characteristics/RotationSpeed').default;
 const TargetState = require('../dist/characteristics/TargetState').default;
 const { getPurifierRotationSpeed } = require('../dist/characteristics/airPurifierState');
+const Platform = require('../dist/platform').default;
 
 const purifierContext = (
   device,
@@ -143,6 +144,102 @@ test('recognizes supported purifier and humidifier model strings', () => {
   assert.equal(deviceTypes.some(({ isValid }) => isValid('Core 300S Pro')), true);
   assert.equal(deviceTypes.some(({ isValid }) => isValid('LAP-C601S-WEU')), true);
   assert.equal(humidifierDeviceTypes.some(({ isValid }) => isValid('Dual200S')), true);
+});
+
+test('empty VeSync discovery does not remove cached HomeKit accessories', () => {
+  const removals = [];
+  const warnings = [];
+  const platform = {
+    registeredDevices: [],
+    cachedAccessories: [
+      { UUID: 'purifier-uuid', displayName: 'Purifier' }
+    ],
+    cachedAdditional: [
+      { UUID: 'sensor-uuid', displayName: 'Purifier Sensor', context: { parent: 'purifier-uuid' } }
+    ],
+    missingCachedAccessoryCounts: new Map(),
+    log: {
+      warn: (...args) => warnings.push(args.join(' ')),
+      info: () => undefined,
+      error: () => undefined
+    },
+    api: {
+      unregisterPlatformAccessories: (_plugin, _platform, accessories) => removals.push(accessories)
+    }
+  };
+
+  Platform.prototype.checkOldDevices.call(platform);
+
+  assert.equal(removals.length, 0);
+  assert.equal(warnings.some((message) => message.includes('keeping cached accessories')), true);
+});
+
+test('cached accessories are only removed after repeated missing discoveries', () => {
+  const removals = [];
+  const platform = {
+    registeredDevices: [{ UUID: 'other-device' }],
+    cachedAccessories: [
+      { UUID: 'purifier-uuid', displayName: 'Purifier' }
+    ],
+    cachedAdditional: [
+      { UUID: 'sensor-uuid', displayName: 'Purifier Sensor', context: { parent: 'purifier-uuid' } }
+    ],
+    missingCachedAccessoryCounts: new Map(),
+    log: {
+      warn: () => undefined,
+      info: () => undefined,
+      error: () => undefined
+    },
+    api: {
+      unregisterPlatformAccessories: (_plugin, _platform, accessories) => removals.push(accessories)
+    }
+  };
+
+  Platform.prototype.checkOldDevices.call(platform);
+  Platform.prototype.checkOldDevices.call(platform);
+
+  assert.equal(removals.length, 0);
+
+  Platform.prototype.checkOldDevices.call(platform);
+
+  assert.equal(removals.length, 1);
+  assert.deepEqual(
+    removals[0].map((accessory) => accessory.UUID),
+    ['purifier-uuid', 'sensor-uuid']
+  );
+});
+
+test('restored cached accessories reset missing discovery counters', () => {
+  const removals = [];
+  const platform = {
+    registeredDevices: [{ UUID: 'other-device' }],
+    cachedAccessories: [
+      { UUID: 'purifier-uuid', displayName: 'Purifier' }
+    ],
+    cachedAdditional: [],
+    missingCachedAccessoryCounts: new Map(),
+    log: {
+      warn: () => undefined,
+      info: () => undefined,
+      error: () => undefined
+    },
+    api: {
+      unregisterPlatformAccessories: (_plugin, _platform, accessories) => removals.push(accessories)
+    }
+  };
+
+  Platform.prototype.checkOldDevices.call(platform);
+  assert.equal(platform.missingCachedAccessoryCounts.get('purifier-uuid'), 1);
+
+  platform.registeredDevices = [{ UUID: 'purifier-uuid' }];
+  Platform.prototype.checkOldDevices.call(platform);
+  assert.equal(platform.missingCachedAccessoryCounts.has('purifier-uuid'), false);
+
+  platform.registeredDevices = [{ UUID: 'other-device' }];
+  Platform.prototype.checkOldDevices.call(platform);
+
+  assert.equal(platform.missingCachedAccessoryCounts.get('purifier-uuid'), 1);
+  assert.equal(removals.length, 0);
 });
 
 test('manual HomeKit speed selection switches an auto purifier to manual state', async () => {
